@@ -1,9 +1,7 @@
-
 import tkinter as tk
 from tkinter import messagebox, scrolledtext
 import psutil
 import subprocess
-import os
 
 WINDOW_WIDTH = 480
 WINDOW_HEIGHT = 320
@@ -23,7 +21,10 @@ def query_port():
             if pid:
                 try:
                     p = psutil.Process(pid)
-                    info = f"端口: {port}\nPID: {pid}\n进程名: {p.name()}\n路径: {p.exe()}\n命令行: {p.cmdline()}\n用户: {p.username()}\n状态: {p.status()}\n------\n"
+                    info = (
+                        f"端口: {port}\nPID: {pid}\n进程名: {p.name()}\n路径: {p.exe()}\n"
+                        f"命令行: {p.cmdline()}\n用户: {p.username()}\n状态: {p.status()}\n------\n"
+                    )
                 except psutil.AccessDenied:
                     info = f"端口: {port}\nPID: {pid}\n进程名: 无法访问（权限不足）\n------\n"
             else:
@@ -53,23 +54,26 @@ def kill_process():
 
 # ---------------- GUI ----------------
 root = tk.Tk()
-root.title("端口占用查询工具")
+root.title("PMC 端口占用查询工具")
 root.geometry(f"{WINDOW_WIDTH}x{WINDOW_HEIGHT}")
 
-tk.Label(root, text="输入端口号:", font=("Microsoft YaHei", 11)).pack(pady=5)
+# === 输入框 + 查询按钮在同一行 ===
+frame_top = tk.Frame(root)
+frame_top.pack(pady=8)
 
-entry_port = tk.Entry(root, width=20, font=("Microsoft YaHei", 11))
-entry_port.pack()
+tk.Label(frame_top, text="端口号:", font=("Microsoft YaHei", 11)).pack(side=tk.LEFT, padx=3)
 
-btn_query = tk.Button(root, text="查询端口", command=query_port, width=15, font=("Microsoft YaHei", 10))
-btn_query.pack(pady=5)
+entry_port = tk.Entry(frame_top, width=10, font=("Microsoft YaHei", 11))
+entry_port.pack(side=tk.LEFT, padx=3)
 
-btn_kill = tk.Button(root, text="结束进程释放端口", command=kill_process, width=20, font=("Microsoft YaHei", 10))
-btn_kill.pack(pady=2)
+btn_query = tk.Button(frame_top, text="查询", command=query_port, width=8, font=("Microsoft YaHei", 10))
+btn_query.pack(side=tk.LEFT, padx=5)
 
-output_box = scrolledtext.ScrolledText(root, width=58, height=11, font=("Consolas", 9))
+btn_kill = tk.Button(root, text="结束进程释放端口", command=kill_process, width=22, font=("Microsoft YaHei", 10))
+btn_kill.pack(pady=4)
+
+output_box = scrolledtext.ScrolledText(root, width=58, height=12, font=("Consolas", 9))
 output_box.pack(pady=5)
 
 found_pid = None
-
 root.mainloop()
