@@ -10,16 +10,8 @@ import gamelib
 from pmcWinTool.winBox import auto
 from pmcWinTool.winBox import app_const
 
-
-window_name = "Google Chrome"
-
 # 窗口置顶
 topmost = False
-
-# 窗口句柄
-hwnd_array = []
-
-hwnd_array_str = []
 
 # 全局UI控制锁
 LOCK_GLOBAL_UI = threading.Lock()
@@ -84,28 +76,6 @@ def toggle_topmost():
         gamelib.log3.console("取消窗口置顶")
 
 
-def active_window():
-    selected_index = combobox.current()  # 获取选择框的当前下标
-    gamelib.log3.console(f"选择的下标：{selected_index}")
-    hwnd = hwnd_array[selected_index]
-    gamelib.win_tool.activate_window(hwnd)
-
-
-def hwnd_name_bind():
-    global hwnd_array
-    global hwnd_array_str
-
-    s_inx = combobox.current()
-    hwnd = hwnd_array[s_inx]
-
-    hwnd_array,hwnd_array_str = gamelib.win_tool.get_all_window_handle_title_in_name(window_name)
-    if None is hwnd_array or 0 == len(hwnd_array):
-        hwnd_array = ["未找到hwnd"]
-
-    combobox['values'] = hwnd_array_str
-    combobox.set(hwnd_array_str[s_inx])
-
-
 def toggle_collect(event=None):
     with LOCK_GLOBAL_UI:
         print(1)
@@ -145,23 +115,6 @@ def mouse_left_click(event=None):
             t.start()
         else:
             btn_mouse_left_click.config(bg="white")
-
-
-def chrome_refresh():
-    gamelib.log3.console("chrome_refresh")
-    with LOCK_GLOBAL_UI:
-        auto.is_run_chrome_refresh = not auto.is_run_chrome_refresh
-        gamelib.log3.console(f"auto.is_run_chrome_refresh {auto.is_run_chrome_refresh}")
-        selected_index = combobox.current()
-        gamelib.log3.console(f"选择的下标：{selected_index}")
-        hwnd = hwnd_array[selected_index]
-
-        if auto.is_run_chrome_refresh:
-            btn_chrome_refresh.config(bg="red")
-            t = threading.Thread(target=auto.run_chrome_refresh, args=(hwnd,), daemon=True)
-            t.start()
-        else:
-            btn_chrome_refresh.config(bg="white")
 
 
 if __name__ == "__main__":
@@ -211,35 +164,12 @@ if __name__ == "__main__":
     btn_mouse_right_click = tk.Button(frame, text="鼠标右键连击(F7)", width=15, height=1, command=mouse_right_click)
     btn_mouse_right_click.pack(side=tk.LEFT, padx=10)
 
-    # 窗口句柄选择, 以及之后的单控选项
-    selection_frame = tk.Frame(scrollable_frame)
-    selection_frame.pack(pady=20, side=tk.TOP, fill="x", anchor="w")
-
-    hwnd_array,hwnd_array_str = gamelib.win_tool.get_all_window_handle_title_in_name(window_name)
-    if None is hwnd_array or 0 == len(hwnd_array):
-        hwnd_array = [f"未找到{window_name}窗口"]
-
-    # 创建下拉选择框
-    combobox = ttk.Combobox(selection_frame, values=hwnd_array_str, width=20, state="readonly")
-    combobox.current(0)  # 默认选择第一个元素
-    combobox.pack(side=tk.LEFT, padx=10)
-
-    btn_print_selection = tk.Button(selection_frame, text="激活窗口(后面的功能基于此窗口)", width=28, height=1,
-                                    command=active_window)
-    btn_print_selection.pack(side=tk.LEFT, padx=10)
-
-    btn_bind_role = tk.Button(selection_frame, text="刷新窗口", width=12, height=1, command=hwnd_name_bind)
-    btn_bind_role.pack(side=tk.LEFT, padx=10)
-
     frame2 = tk.Frame(scrollable_frame)
     frame2.pack(pady=20, side=tk.TOP, fill="x", anchor="w")
 
     # 功能
     fun_frame_q_h = tk.Frame(scrollable_frame)
     fun_frame_q_h.pack(pady=20, side=tk.TOP, fill="x", anchor="w")
-
-    btn_chrome_refresh = tk.Button(fun_frame_q_h, text="Chrome 崩溃刷新", width=15, height=1, command=chrome_refresh)
-    btn_chrome_refresh.pack(side=tk.LEFT, padx=10)
 
     #  label 说明
 

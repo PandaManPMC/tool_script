@@ -1,8 +1,7 @@
 import time
 import keyboard
 
-from MSN import win_tool
-
+from gamelib import win_tool
 
 # 示例用法
 if __name__ == "__main__":
