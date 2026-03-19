@@ -122,7 +122,11 @@ if __name__ == "__main__":
     # 创建 Tkinter GUI
     root = tk.Tk()
     root.title(app_const.APP_NAME)
-    root.geometry(app_const.WINDOW_GEOMETRY)  # 调整窗口大小
+
+    screen_w = root.winfo_screenwidth()
+    screen_h = root.winfo_screenheight()
+
+    root.geometry(f'{app_const.WINDOW_GEOMETRY}+{int(screen_w * 0.75)}+{int(screen_h * 0.2)}')
 
     root.attributes('-alpha', 0.96)
     root.protocol("WM_DELETE_WINDOW", on_closing)
@@ -155,14 +159,14 @@ if __name__ == "__main__":
     frame = tk.Frame(scrollable_frame)
     frame.pack(pady=10, anchor='w', fill='x')
 
-    btn_topmost = tk.Button(frame, text="窗口置顶", width=14, height=1, command=toggle_topmost)
-    btn_topmost.pack(side=tk.LEFT, padx=10)
+    btn_topmost = tk.Button(frame, text="窗口置顶", width=10, height=1, command=toggle_topmost)
+    btn_topmost.pack(side=tk.LEFT, padx=5)
 
-    btn_mouse_left_click = tk.Button(frame, text="鼠标左键连击(F6)", width=15, height=1, command=mouse_left_click)
-    btn_mouse_left_click.pack(side=tk.LEFT, padx=10)
+    btn_mouse_left_click = tk.Button(frame, text="鼠标左键连击(F6)", width=14, height=1, command=mouse_left_click)
+    btn_mouse_left_click.pack(side=tk.LEFT, padx=5)
 
-    btn_mouse_right_click = tk.Button(frame, text="鼠标右键连击(F7)", width=15, height=1, command=mouse_right_click)
-    btn_mouse_right_click.pack(side=tk.LEFT, padx=10)
+    btn_mouse_right_click = tk.Button(frame, text="鼠标右键连击(F7)", width=14, height=1, command=mouse_right_click)
+    btn_mouse_right_click.pack(side=tk.LEFT, padx=5)
 
     frame2 = tk.Frame(scrollable_frame)
     frame2.pack(pady=20, side=tk.TOP, fill="x", anchor="w")
