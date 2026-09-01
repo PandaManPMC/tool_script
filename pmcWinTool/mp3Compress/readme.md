@@ -1,6 +1,6 @@
 
 
-```angular2html
+```
 pyinstaller --onefile --windowed --name mp3Compress main.py
 ```
 
