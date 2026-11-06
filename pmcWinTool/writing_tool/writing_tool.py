@@ -1,3 +1,4 @@
+
 import tkinter as tk
 from tkinter import ttk, font, filedialog, simpledialog, messagebox
 import os
@@ -33,11 +34,13 @@ class WritingTool:
         self.widget_to_path = {}  # Text widget -> path
 
         self.project_root = None
+        self.dark_mode = False
+        self.font_size = 14
         self.config_path = self.get_config_path()
 
         self.editor_font = font.Font(
             family="Microsoft YaHei",
-            size=14
+            size=self.font_size
         )
 
         self.build_ui()
@@ -66,10 +69,16 @@ class WritingTool:
                 path = data.get("project_root")
                 if path and os.path.isdir(path):
                     self.project_root = os.path.abspath(path)
+                self.dark_mode = bool(data.get("dark_mode", False))
+                self.font_size = max(10, min(18, int(data.get("font_size", 14))))
+                self.editor_font.configure(size=self.font_size)
+                if hasattr(self, "font_size_var"):
+                    self.font_size_var.set(str(self.font_size))
         except Exception:
             self.project_root = None
 
         self.update_project_title()
+        self.apply_theme()
         if self.project_root:
             self.refresh_file_tree()
 
@@ -77,7 +86,11 @@ class WritingTool:
         try:
             with open(self.config_path, "w", encoding="utf-8") as f:
                 json.dump(
-                    {"project_root": self.project_root},
+                    {
+                        "project_root": self.project_root,
+                        "dark_mode": self.dark_mode,
+                        "font_size": self.font_size
+                    },
                     f,
                     ensure_ascii=False,
                     indent=2
@@ -121,7 +134,30 @@ class WritingTool:
             bg="#f1f3f5",
             activebackground="#e5e9ed",
             command=self.choose_project_folder
-        ).pack(side=tk.LEFT, padx=8, pady=10)
+        ).pack(side=tk.LEFT, padx=(8, 4), pady=10)
+
+        tk.Label(
+            toolbar, text="字号", font=("Microsoft YaHei", 9),
+            bg="#ffffff", fg="#666666"
+        ).pack(side=tk.LEFT, padx=(8, 3))
+
+        self.font_size_var = tk.StringVar(value=str(self.font_size))
+        self.font_size_combo = ttk.Combobox(
+            toolbar, textvariable=self.font_size_var,
+            values=[str(size) for size in range(10, 19)],
+            state="readonly", width=4
+        )
+        self.font_size_combo.pack(side=tk.LEFT, padx=(0, 6), pady=10)
+        self.font_size_combo.bind("<<ComboboxSelected>>", self.on_font_size_changed)
+
+        self.theme_button = tk.Button(
+            toolbar,
+            text="☾ 黑暗模式",
+            font=("Microsoft YaHei", 9),
+            relief=tk.FLAT,
+            command=self.toggle_dark_mode
+        )
+        self.theme_button.pack(side=tk.LEFT, padx=(2, 8), pady=10)
 
         self.word_label = tk.Label(
             toolbar,
@@ -235,7 +271,9 @@ class WritingTool:
         stats_frame.pack_propagate(False)
 
         stats_header = tk.Frame(stats_frame, bg="#fafafa", height=36)
-        stats_header.pack(fill=tk.X)
+        # 标题浮在统计画布上方，不再占用垂直空间；
+        # 这样右侧统计文字才能与编辑器的实际行位置一一对应。
+        stats_header.place(x=0, y=0, relwidth=1, height=36)
         stats_header.pack_propagate(False)
 
         tk.Label(
@@ -289,6 +327,225 @@ class WritingTool:
             fg="#888888"
         )
         self.save_status.pack(side=tk.LEFT, padx=15)
+
+    def on_font_size_changed(self, event=None):
+        try:
+            size = int(self.font_size_var.get())
+        except (TypeError, ValueError):
+            return
+        if not 10 <= size <= 18:
+            return
+        self.font_size = size
+        self.editor_font.configure(size=size)
+        self.save_project_setting()
+        self.schedule_refresh()
+
+    # =========================================================
+    # 主题（浅色 / 柔和深色）
+    # =========================================================
+
+    def toggle_dark_mode(self):
+        self.dark_mode = not self.dark_mode
+        self.apply_theme()
+        self.save_project_setting()
+
+    def style_popup_menu(self, menu):
+        if self.dark_mode:
+            menu.configure(
+                bg="#30343b",
+                fg="#e7e9ed",
+                activebackground="#454b55",
+                activeforeground="#ffffff",
+                selectcolor="#30343b"
+            )
+        else:
+            menu.configure(
+                bg="#ffffff",
+                fg="#333333",
+                activebackground="#e9eef5",
+                activeforeground="#222222",
+                selectcolor="#ffffff"
+            )
+
+    def apply_theme(self):
+        if not hasattr(self, "tabbar"):
+            return
+
+        if self.dark_mode:
+            # PyCharm Darcula 风格
+            self.root_bg = "#2B2B2B"
+            self.surface = "#3C3F41"
+            self.sidebar_bg = "#313335"
+            self.tab_bg = "#313335"
+            self.stats_bg = "#313335"
+            self.gutter_bg = "#313335"
+            self.editor_bg = "#2B2B2B"
+            self.text_fg = "#A9B7C6"
+            self.muted_fg = "#A0A0A0"
+            self.subtle_fg = "#808080"
+            self.button_bg = "#4B4F51"
+            self.button_active = "#5A5F61"
+            self.selection_bg = "#214283"
+            self.tab_active = "#2B2B2B"
+            self.tab_inactive = "#313335"
+            self.border_color = "#454545"
+            self.theme_button.config(text="☀ 浅色模式")
+        else:
+            self.root_bg = "#f5f5f5"
+            self.surface = "#ffffff"
+            self.sidebar_bg = "#f8f8f8"
+            self.tab_bg = "#eeeeee"
+            self.stats_bg = "#fafafa"
+            self.gutter_bg = "#f7f7f7"
+            self.editor_bg = "#ffffff"
+            self.text_fg = "#333333"
+            self.muted_fg = "#666666"
+            self.subtle_fg = "#999999"
+            self.button_bg = "#f1f3f5"
+            self.button_active = "#e5e9ed"
+            self.selection_bg = "#cce5ff"
+            self.tab_active = "#ffffff"
+            self.tab_inactive = "#e9e9e9"
+            self.border_color = "#d5d5d5"
+            self.theme_button.config(text="☾ 黑暗模式")
+
+        self.root.configure(bg=self.root_bg)
+        self.theme_button.configure(
+            bg=self.button_bg,
+            fg=self.text_fg,
+            activebackground=self.button_active,
+            activeforeground=self.text_fg
+        )
+        self.gutter.configure(bg=self.gutter_bg)
+        self.stats_canvas.configure(bg=self.stats_bg)
+        self.word_label.configure(bg=self.surface, fg=self.muted_fg)
+        self.save_status.configure(bg=self.surface)
+        self.project_label.configure(bg=self.surface, fg=self.muted_fg)
+
+        # 根据控件类型统一更新基础配色；语义状态色（保存成功/失败、字数警示）保留。
+        self._apply_theme_to_widget(self.root)
+
+        # 当前所有打开的编辑器均独立应用主题。
+        for doc in self.documents.values():
+            editor = doc["widget"]
+            editor.configure(
+                bg=self.editor_bg,
+                fg=self.text_fg,
+                insertbackground=self.text_fg,
+                selectbackground=self.selection_bg,
+                selectforeground="#ffffff" if self.dark_mode else "#222222"
+            )
+
+        style = ttk.Style(self.root)
+        try:
+            style.theme_use("clam")
+        except tk.TclError:
+            pass
+        style.configure(
+            "TCombobox",
+            fieldbackground=self.sidebar_bg,
+            background=self.button_bg,
+            foreground=self.text_fg,
+            arrowcolor=self.text_fg,
+            bordercolor=self.border_color,
+            lightcolor=self.border_color,
+            darkcolor=self.border_color
+        )
+        style.map(
+            "TCombobox",
+            fieldbackground=[("readonly", self.sidebar_bg)],
+            foreground=[("readonly", self.text_fg)],
+            selectbackground=[("readonly", self.selection_bg)],
+            selectforeground=[("readonly", "#ffffff" if self.dark_mode else "#222222")]
+        )
+        self.font_size_combo.configure(style="TCombobox")
+        style.configure(
+            "Treeview",
+            background=self.sidebar_bg,
+            foreground=self.text_fg,
+            fieldbackground=self.sidebar_bg,
+            bordercolor=self.border_color,
+            rowheight=25,
+            font=("Microsoft YaHei", 9)
+        )
+        style.map(
+            "Treeview",
+            background=[("selected", "#214283" if self.dark_mode else "#cfe2f3")],
+            foreground=[("selected", "#ffffff" if self.dark_mode else "#222222")]
+        )
+        style.configure(
+            "Treeview.Heading",
+            background=self.surface,
+            foreground=self.text_fg
+        )
+
+        self.refresh_tabs()
+        self.schedule_refresh()
+
+    def _apply_theme_to_widget(self, parent):
+        # 固定的浅色/深色配色映射，保证反复切换不会丢失控件原有配色角色。
+        light_to_dark = {
+            "#f5f5f5": "#2B2B2B",
+            "#ffffff": "#3C3F41",
+            "#f8f8f8": "#313335",
+            "#eeeeee": "#313335",
+            "#fafafa": "#313335",
+            "#f7f7f7": "#313335",
+            "#f1f3f5": "#4B4F51",
+            "#e5e9ed": "#5A5F61",
+            "#e9e9e9": "#313335",
+            "#d5d5d5": "#454545",
+            "#333333": "#A9B7C6",
+            "#666666": "#A0A0A0",
+            "#888888": "#A0A0A0",
+            "#999999": "#808080",
+            "#777777": "#A0A0A0"
+        }
+        dark_to_light = {value: key for key, value in light_to_dark.items()}
+
+        def mapped(value):
+            if not isinstance(value, str):
+                return value
+            if self.dark_mode:
+                return light_to_dark.get(value, value)
+            return dark_to_light.get(value, value)
+
+        for child in parent.winfo_children():
+            try:
+                if isinstance(child, (tk.Frame, tk.LabelFrame)):
+                    old = child.cget("bg")
+                    child.configure(bg=mapped(old))
+                elif isinstance(child, tk.Label):
+                    child.configure(
+                        bg=mapped(child.cget("bg")),
+                        fg=mapped(child.cget("fg"))
+                    )
+                elif isinstance(child, tk.Button):
+                    child.configure(
+                        bg=mapped(child.cget("bg")),
+                        fg=mapped(child.cget("fg")),
+                        activebackground=self.button_active,
+                        activeforeground=self.text_fg
+                    )
+                elif isinstance(child, tk.Canvas):
+                    child.configure(bg=mapped(child.cget("bg")))
+                elif isinstance(child, tk.Text):
+                    child.configure(
+                        bg=self.editor_bg,
+                        fg=self.text_fg,
+                        insertbackground=self.text_fg,
+                        selectbackground=self.selection_bg,
+                        selectforeground="#ffffff" if self.dark_mode else "#222222"
+                    )
+                self._apply_theme_to_widget(child)
+            except tk.TclError:
+                continue
+
+        # 标签区域的当前/非当前状态需要按主题单独处理。
+        if parent is self.tabbar:
+            parent.configure(bg=self.tab_bg)
+        if parent is self.root:
+            parent.configure(bg=self.root_bg)
 
     # =========================================================
     # 项目目录
@@ -351,44 +608,48 @@ class WritingTool:
         except (PermissionError, OSError):
             return
 
-        dirs = []
-        files = []
+        visible_entries = []
         for entry in entries:
             try:
                 if entry.is_symlink():
                     continue
-                if entry.is_dir(follow_symlinks=False):
-                    dirs.append(entry)
-                elif entry.is_file(follow_symlinks=False) and entry.name.lower().endswith(".txt"):
-                    files.append(entry)
+
+                is_dir = entry.is_dir(follow_symlinks=False)
+                is_txt = (
+                    entry.is_file(follow_symlinks=False)
+                    and entry.name.lower().endswith(".txt")
+                )
+                if not is_dir and not is_txt:
+                    continue
+
+                # Windows 的 st_ctime 表示创建时间。
+                # 其他系统优先使用 st_birthtime，不支持时退回 st_ctime。
+                stat = entry.stat(follow_symlinks=False)
+                created_at = getattr(
+                    stat,
+                    "st_birthtime_ns",
+                    getattr(stat, "st_ctime_ns", int(stat.st_ctime * 1_000_000_000))
+                )
+                visible_entries.append((created_at, entry.name.casefold(), entry, is_dir))
             except OSError:
                 continue
 
-        dirs.sort(key=lambda x: x.name.casefold())
-        files.sort(key=lambda x: x.name.casefold())
+        # 文件和文件夹统一按创建时间升序排列，较早创建的显示在前。
+        # 创建时间相同时按名称排序，确保顺序稳定。
+        visible_entries.sort(key=lambda item: (item[0], item[1]))
 
-        for entry in dirs:
+        for _, _, entry, is_dir in visible_entries:
             path = os.path.abspath(entry.path)
             self.file_tree.insert(
                 folder,
                 tk.END,
                 iid=path,
                 text=entry.name,
-                values=("folder",),
+                values=("folder" if is_dir else "file",),
                 open=False
             )
-            self._insert_directory_contents(path)
-
-        for entry in files:
-            path = os.path.abspath(entry.path)
-            self.file_tree.insert(
-                folder,
-                tk.END,
-                iid=path,
-                text=entry.name,
-                values=("file",),
-                open=False
-            )
+            if is_dir:
+                self._insert_directory_contents(path)
 
     def is_inside_project(self, path):
         if not self.project_root:
@@ -520,6 +781,7 @@ class WritingTool:
             menu.add_command(label="重命名", command=lambda p=path: self.rename_path(p))
             menu.add_command(label="删除文件", command=lambda p=path: self.delete_path(p))
 
+        self.style_popup_menu(menu)
         menu.tk_popup(event.x_root, event.y_root)
 
     def on_tree_select(self, event=None):
@@ -677,25 +939,26 @@ class WritingTool:
         editor = tk.Text(
             self.text_frame,
             font=self.editor_font,
-            bg="#ffffff",
-            fg="#333333",
-            insertbackground="#333333",
-            selectbackground="#cce5ff",
-            selectforeground="#222222",
+            bg=self.editor_bg if hasattr(self, "editor_bg") else "#ffffff",
+            fg=self.text_fg if hasattr(self, "text_fg") else "#333333",
+            insertbackground=self.text_fg if hasattr(self, "text_fg") else "#333333",
+            selectbackground=self.selection_bg if hasattr(self, "selection_bg") else "#cce5ff",
+            selectforeground="#ffffff" if self.dark_mode else "#222222",
             relief=tk.FLAT,
             bd=0,
             padx=15,
-            pady=12,
+            pady=24,
             wrap=tk.WORD,
             undo=True,
             maxundo=-1,
-            spacing1=5,
-            spacing3=7
+            spacing1=6,
+            spacing3=9
         )
 
         editor.insert("1.0", content)
         editor.edit_modified(False)
 
+        editor.bind("<KeyPress>", self.on_chinese_keypress)
         editor.bind("<<Modified>>", self.on_text_changed)
         editor.bind("<KeyRelease>", self.on_editor_action)
         editor.bind("<ButtonRelease-1>", self.on_editor_action)
@@ -709,6 +972,53 @@ class WritingTool:
                 self.on_editor_scroll(w, first, last)
         )
         return editor
+
+    def on_chinese_keypress(self, event):
+        """将常用英文键盘标点转换为中国大陆规范中文标点。"""
+        editor = event.widget
+        if editor is not self.editor:
+            return
+
+        # 空格使用全角空格（U+3000），视觉宽度约为一个汉字。
+        if event.keysym == "space" or event.char == " ":
+            editor.insert("insert", "\u3000")
+            return "break"
+
+        punctuation = {
+            ",": "，",
+            ".": "。",
+            "?": "？",
+            "!": "！",
+            ":": "：",
+            ";": "；",
+            "(": "（",
+            ")": "）",
+            "[": "【",
+            "]": "】",
+            "{": "｛",
+            "}": "｝",
+            "<": "《",
+            ">": "》",
+        }
+
+        char = event.char
+        if char in punctuation:
+            editor.insert("insert", punctuation[char])
+            return "break"
+
+        # 根据光标前已输入的中文引号数量，自动在开引号和闭引号间切换。
+        if char in ('"', "'"):
+            before = editor.get("1.0", "insert")
+            if char == '"':
+                opening, closing = "“", "”"
+            else:
+                opening, closing = "‘", "’"
+
+            replacement = opening if before.count(opening) <= before.count(closing) else closing
+            editor.insert("insert", replacement)
+            return "break"
+
+        return None
 
     def open_file(self, path):
         if not self.is_inside_project(path):
@@ -789,8 +1099,8 @@ class WritingTool:
         for path in self.documents:
             doc = self.documents[path]
             active = path == self.active_path
-            bg = "#ffffff" if active else "#e9e9e9"
-            fg = "#333333" if active else "#777777"
+            bg = self.tab_active if active else self.tab_inactive
+            fg = self.text_fg if active else self.muted_fg
             name = os.path.basename(path)
             if doc["dirty"]:
                 name += " *"
@@ -799,7 +1109,7 @@ class WritingTool:
                 self.tabbar,
                 bg=bg,
                 highlightthickness=1 if active else 0,
-                highlightbackground="#d5d5d5"
+                highlightbackground=self.border_color
             )
             tab.pack(side=tk.LEFT, padx=(0, 2), pady=(3, 0))
 
@@ -826,9 +1136,69 @@ class WritingTool:
             )
             close.pack(side=tk.LEFT)
 
+            for widget in (tab, label, close):
+                widget.bind("<Button-3>", lambda e, p=path: self.show_tab_context_menu(e, p))
             for widget in (tab, label):
                 widget.bind("<Button-1>", lambda e, p=path: self.activate_document(p))
             close.bind("<Button-1>", lambda e, p=path: self.close_document(p))
+
+    def show_tab_context_menu(self, event, path):
+        paths = list(self.documents.keys())
+        if path not in paths:
+            return
+
+        index = paths.index(path)
+        menu = tk.Menu(self.root, tearoff=0)
+        menu.add_command(
+            label="关闭右侧",
+            command=lambda: self.close_documents(paths[index + 1:])
+        )
+        menu.add_command(
+            label="关闭左侧",
+            command=lambda: self.close_documents(paths[:index])
+        )
+        menu.add_separator()
+        menu.add_command(
+            label="关闭全部",
+            command=lambda: self.close_documents(paths)
+        )
+        self.style_popup_menu(menu)
+        menu.tk_popup(event.x_root, event.y_root)
+
+    def close_documents(self, paths):
+        # 先逐个处理未保存提示；任意一步取消，都不执行批量关闭。
+        paths = [p for p in paths if p in self.documents]
+        decisions = {}
+
+        for path in paths:
+            doc = self.documents[path]
+            if not doc["dirty"]:
+                decisions[path] = False
+                continue
+
+            answer = messagebox.askyesnocancel(
+                "文件尚未保存",
+                f"是否保存对以下文件的修改？\\n\\n{path}\\n\\n"
+                "是：保存后关闭\\n否：放弃修改并关闭\\n取消：取消本次操作",
+                parent=self.root
+            )
+            if answer is None:
+                return
+            decisions[path] = answer
+
+        # 所有确认完成后再保存/关闭，避免中途取消造成标签被关闭一半。
+        for path in paths:
+            if decisions.get(path) and not self.save_document(path):
+                return
+
+        was_active_closed = self.active_path in paths
+        for path in paths:
+            if path in self.documents:
+                self.remove_document_without_prompt(path)
+
+        if was_active_closed or self.active_path not in self.documents:
+            self.activate_first_document()
+        self.refresh_tabs()
 
     def close_document(self, path):
         if path not in self.documents:
@@ -950,9 +1320,11 @@ class WritingTool:
             elif count > 40:
                 count_color = "#e6a23c"
             else:
-                count_color = "#666666"
+                count_color = "#aab3bf" if self.dark_mode else "#666666"
 
-            info = self.editor.dlineinfo(start)
+            # 取逻辑段落末尾所在的显示行；段落即使自动换行，也对齐到最后一行。
+            paragraph_end = f"{line}.end"
+            info = self.editor.dlineinfo(paragraph_end)
             if info is None:
                 continue
 
@@ -963,7 +1335,7 @@ class WritingTool:
                 15,
                 text_y,
                 text=str(paragraph_number),
-                anchor="w",
+                anchor="s",
                 font=("Microsoft YaHei", 9),
                 fill="#999999"
             )
@@ -971,7 +1343,7 @@ class WritingTool:
                 105,
                 text_y,
                 text=str(count),
-                anchor="e",
+                anchor="se",
                 font=("Microsoft YaHei", 10, "bold"),
                 fill=count_color
             )
@@ -1119,7 +1491,7 @@ class WritingTool:
                 40,
                 y + baseline,
                 text=str(line),
-                anchor="e",
+                anchor="se",
                 font=self.editor_font,
                 fill="#999999"
             )
@@ -1167,3 +1539,4 @@ if __name__ == "__main__":
     root = tk.Tk()
     app = WritingTool(root)
     root.mainloop()
+
