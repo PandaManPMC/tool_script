@@ -2,15 +2,16 @@
 import tkinter as tk
 from tkinter import font
 import os
+import unicodedata
 
 
 class WritingTool:
 
     def __init__(self, root):
         self.root = root
-        self.root.title("文本写作工具")
-        self.root.geometry("720x960+200+20")
-        self.root.minsize(400, 500)
+        self.root.title("文本写作工具  pmc v1.0 pandamancoin.com")
+        self.root.geometry("550x900+150+50")
+        self.root.minsize(500, 600)
         self.root.configure(bg="#f5f5f5")
 
         # 固定保存文件
@@ -93,6 +94,71 @@ class WritingTool:
             fill=tk.Y
         )
 
+        # 滚动条
+        self.scrollbar = tk.Scrollbar(
+            container,
+            command=self.on_scroll
+        )
+        self.scrollbar.pack(
+            side=tk.RIGHT,
+            fill=tk.Y
+        )
+
+        # 右侧段落统计区域
+        stats_frame = tk.Frame(
+            container,
+            width=135,
+            bg="#fafafa"
+        )
+        stats_frame.pack(
+            side=tk.RIGHT,
+            fill=tk.Y
+        )
+        stats_frame.pack_propagate(False)
+
+        # 统计标题
+        stats_header = tk.Frame(
+            stats_frame,
+            bg="#fafafa",
+            height=36
+        )
+        stats_header.pack(fill=tk.X)
+        stats_header.pack_propagate(False)
+
+        tk.Label(
+            stats_header,
+            text="段落",
+            font=("Microsoft YaHei", 9),
+            bg="#fafafa",
+            fg="#999999"
+        ).place(
+            x=15,
+            rely=0.5,
+            anchor="w"
+        )
+
+        tk.Label(
+            stats_header,
+            text="字数",
+            font=("Microsoft YaHei", 9),
+            bg="#fafafa",
+            fg="#999999"
+        ).place(
+            x=105,
+            rely=0.5,
+            anchor="e"
+        )
+
+        self.stats_canvas = tk.Canvas(
+            stats_frame,
+            bg="#fafafa",
+            highlightthickness=0
+        )
+        self.stats_canvas.pack(
+            fill=tk.BOTH,
+            expand=True
+        )
+
         # 文本编辑器
         self.editor = tk.Text(
             container,
@@ -109,27 +175,13 @@ class WritingTool:
             wrap=tk.WORD,
             undo=True,
             maxundo=-1,
-            spacing1=3,
-            spacing3=3
+            spacing1=5,
+            spacing3=7
         )
         self.editor.pack(
             side=tk.LEFT,
             fill=tk.BOTH,
             expand=True
-        )
-
-        # 滚动条
-        scrollbar = tk.Scrollbar(
-            container,
-            command=self.on_scroll
-        )
-        scrollbar.pack(
-            side=tk.RIGHT,
-            fill=tk.Y
-        )
-
-        self.editor.configure(
-            yscrollcommand=self.on_editor_scroll
         )
 
         # 文本变化事件
@@ -169,7 +221,15 @@ class WritingTool:
             self.schedule_refresh
         )
 
-        # 底部状态栏
+        # 滚动同步
+        self.editor.configure(
+            yscrollcommand=self.on_editor_scroll
+        )
+
+        # ==============================
+        # 底部状态栏（保留原有功能）
+        # ==============================
+
         statusbar = tk.Frame(
             self.root,
             bg="#ffffff",
@@ -219,10 +279,38 @@ class WritingTool:
         self.editor.edit_modified(False)
 
         self.update_word_count()
-        self.update_line_numbers()
+        self.schedule_refresh()
 
     # ==============================
     # 字数统计
+    # ==============================
+
+    def count_words(self, content):
+
+        count = 0
+
+        for char in content:
+
+            # 空白不计数
+            if char.isspace():
+                continue
+
+            category = unicodedata.category(char)
+
+            # 标点符号不计数
+            if category.startswith("P"):
+                continue
+
+            # 控制字符不计数
+            if category.startswith("C"):
+                continue
+
+            count += 1
+
+        return count
+
+    # ==============================
+    # 全文统计
     # ==============================
 
     def update_word_count(self):
@@ -232,15 +320,81 @@ class WritingTool:
             "end-1c"
         )
 
-        # 不计算空格、换行、制表符
-        count = sum(
-            1 for char in content
-            if not char.isspace()
-        )
+        count = self.count_words(content)
 
         self.word_label.config(
             text=f"当前字数：{count}"
         )
+
+    # ==============================
+    # 右侧段落统计
+    # ==============================
+
+    def update_paragraph_stats(self):
+
+        self.stats_canvas.delete("all")
+
+        total_lines = int(
+            self.editor.index("end-1c").split(".")[0]
+        )
+
+        paragraph_number = 0
+
+        for line in range(1, total_lines + 1):
+
+            start = f"{line}.0"
+            end = f"{line}.0 lineend"
+
+            content = self.editor.get(
+                start,
+                end
+            )
+
+            # 空行不展示
+            if not content.strip():
+                continue
+
+            paragraph_number += 1
+
+            count = self.count_words(content)
+
+            # 根据段落字数设置颜色
+            if count > 50:
+                count_color = "#e74c3c"
+            elif count > 40:
+                count_color = "#e6a23c"
+            else:
+                count_color = "#666666"
+
+            # 获取段落实际显示位置
+            info = self.editor.dlineinfo(start)
+
+            if info is None:
+                continue
+
+            x, y, width, height, baseline = info
+
+            text_y = y + baseline
+
+            # 段落编号
+            self.stats_canvas.create_text(
+                15,
+                text_y,
+                text=str(paragraph_number),
+                anchor="w",
+                font=("Microsoft YaHei", 9),
+                fill="#999999"
+            )
+
+            # 字数
+            self.stats_canvas.create_text(
+                105,
+                text_y,
+                text=str(count),
+                anchor="e",
+                font=("Microsoft YaHei", 10, "bold"),
+                fill=count_color
+            )
 
     # ==============================
     # 文本变化
@@ -336,50 +490,47 @@ class WritingTool:
 
     def on_editor_scroll(self, first, last):
 
-        self.scrollbar_update(first, last)
+        self.scrollbar.set(first, last)
         self.schedule_refresh()
 
-    def scrollbar_update(self, first, last):
-
-        # 获取滚动条
-        scrollbar = self.editor.master.winfo_children()
-
-        for widget in scrollbar:
-            if isinstance(widget, tk.Scrollbar):
-                widget.set(first, last)
-                break
-
     # ==============================
-    # 行号刷新
+    # 刷新
     # ==============================
 
     def schedule_refresh(self, event=None):
 
         if self.refresh_timer is None:
+
             self.refresh_timer = self.root.after_idle(
-                self.update_line_numbers
+                self.update_layout
             )
 
-    def update_line_numbers(self):
+    def update_layout(self):
 
         self.refresh_timer = None
 
         if not self.editor.winfo_exists():
             return
 
+        self.update_line_numbers()
+        self.update_paragraph_stats()
+
+    # ==============================
+    # 行号刷新
+    # ==============================
+
+    def update_line_numbers(self):
+
         self.gutter.delete("all")
 
-        # 获取总逻辑行数
         total_lines = int(
             self.editor.index("end-1c").split(".")[0]
         )
 
-        # 根据每一行实际显示位置绘制行号
         for line in range(1, total_lines + 1):
 
             index = f"{line}.0"
 
-            # 获取该行在屏幕上的实际位置
             info = self.editor.dlineinfo(index)
 
             if info is None:
@@ -387,7 +538,6 @@ class WritingTool:
 
             x, y, width, height, baseline = info
 
-            # 只绘制当前可见的行号
             self.gutter.create_text(
                 40,
                 y + baseline,
@@ -426,11 +576,5 @@ if __name__ == "__main__":
     root = tk.Tk()
 
     app = WritingTool(root)
-
-    # 保存滚动条引用
-    app.scrollbar = next(
-        widget for widget in app.editor.master.winfo_children()
-        if isinstance(widget, tk.Scrollbar)
-    )
 
     root.mainloop()
