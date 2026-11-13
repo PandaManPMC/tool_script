@@ -1,11 +1,56 @@
-
 import tkinter as tk
 from tkinter import ttk, font, filedialog, simpledialog, messagebox
 import os
 import json
 import shutil
 import unicodedata
+import ctypes
+from ctypes import wintypes
 
+def set_file_creation_time(path, creation_time_ns):
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+
+    CreateFileW = kernel32.CreateFileW
+    CreateFileW.restype = wintypes.HANDLE
+
+    handle = CreateFileW(
+        path,
+        0x0100,  # FILE_WRITE_ATTRIBUTES
+        0x00000001 | 0x00000002 | 0x00000004,
+        None,
+        3,       # OPEN_EXISTING
+        0x80,    # FILE_ATTRIBUTE_NORMAL
+        None
+    )
+
+    if handle == wintypes.HANDLE(-1).value:
+        raise ctypes.WinError(ctypes.get_last_error())
+
+    try:
+        class FILETIME(ctypes.Structure):
+            _fields_ = [
+                ("dwLowDateTime", wintypes.DWORD),
+                ("dwHighDateTime", wintypes.DWORD)
+            ]
+
+        # Unix 时间转换为 Windows FILETIME
+        ticks = creation_time_ns // 100 + 116444736000000000
+
+        ft = FILETIME(
+            ticks & 0xFFFFFFFF,
+            ticks >> 32
+        )
+
+        if not kernel32.SetFileTime(
+            handle,
+            ctypes.byref(ft),
+            None,
+            None
+        ):
+            raise ctypes.WinError(ctypes.get_last_error())
+
+    finally:
+        kernel32.CloseHandle(handle)
 
 class WritingTool:
     """
@@ -630,13 +675,24 @@ class WritingTool:
                     "st_birthtime_ns",
                     getattr(stat, "st_ctime_ns", int(stat.st_ctime * 1_000_000_000))
                 )
+
                 visible_entries.append((created_at, entry.name.casefold(), entry, is_dir))
             except OSError:
                 continue
 
+
+
         # 文件和文件夹统一按创建时间升序排列，较早创建的显示在前。
         # 创建时间相同时按名称排序，确保顺序稳定。
         visible_entries.sort(key=lambda item: (item[0], item[1]))
+
+        # for created_at, name, entry, is_dir in visible_entries:
+        #     print(
+        #         name,
+        #         created_at,
+        #         entry.stat(follow_symlinks=False).st_ctime,
+        #         getattr(entry.stat(follow_symlinks=False), "st_birthtime", None)
+        #     )
 
         for _, _, entry, is_dir in visible_entries:
             path = os.path.abspath(entry.path)
@@ -1409,6 +1465,8 @@ class WritingTool:
         widget = doc["widget"]
         content = widget.get("1.0", "end-1c")
         temp_path = path + ".tmp"
+        # 保存原文件创建时间
+        creation_time_ns = os.stat(path).st_ctime_ns
 
         try:
             with open(temp_path, "w", encoding="utf-8", newline="") as f:
@@ -1417,6 +1475,9 @@ class WritingTool:
                 os.fsync(f.fileno())
 
             os.replace(temp_path, path)
+
+            # 恢复原文件创建时间
+            set_file_creation_time(path, creation_time_ns)
             doc["dirty"] = False
 
             timer = doc.get("save_timer")
