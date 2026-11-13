@@ -23,7 +23,7 @@ class WritingTool:
 
         # 左侧文件树增加的宽度不挤压原有正文区域：
         # 原来约 550px 的编辑区域 + 210px 文件树。
-        self.root.geometry("760x900+150+50")
+        self.root.geometry("840x900+150+50")
         self.root.minsize(700, 600)
         self.root.configure(bg="#f5f5f5")
 
@@ -178,7 +178,7 @@ class WritingTool:
         body.pack(fill=tk.BOTH, expand=True, padx=15, pady=15)
 
         # 左侧文件管理
-        sidebar = tk.Frame(body, bg="#f8f8f8", width=210)
+        sidebar = tk.Frame(body, bg="#f8f8f8", width=280)
         sidebar.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 8))
         sidebar.pack_propagate(False)
 
